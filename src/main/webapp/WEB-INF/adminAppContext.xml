@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans
+        xmlns="http://www.springframework.org/schema/beans"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xmlns:p="http://www.springframework.org/schema/p"
+        xmlns:context="http://www.springframework.org/schema/context"
+        xmlns:mvc="http://www.springframework.org/schema/mvc"
+        xmlns:mongo="http://www.springframework.org/schema/data/mongo"
+        xmlns:rabbit="http://www.springframework.org/schema/rabbit"
+        xmlns:elasticsearch="http://www.springframework.org/schema/data/elasticsearch"
+        xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-3.2.xsd
+        http://www.springframework.org/schema/data/mongo
+        http://www.springframework.org/schema/data/mongo/spring-mongo-1.0.xsd
+    http://www.springframework.org/schema/aop http://www.springframework.org/schema/aop/spring-aop-2.0.xsd
+    http://www.springframework.org/schema/context
+    http://www.springframework.org/schema/context/spring-context-3.2.xsd
+    http://www.springframework.org/schema/mvc
+    http://www.springframework.org/schema/mvc/spring-mvc-3.2.xsd
+    http://www.springframework.org/schema/rabbit http://www.springframework.org/schema/rabbit/spring-rabbit.xsd
+    http://www.springframework.org/schema/data/elasticsearch http://www.springframework.org/schema/data/elasticsearch/spring-elasticsearch-1.0.xsd"
+        >
+
+    <context:component-scan base-package="com.tapwisdom.admin.api, com.tapwisdom.service, 
+    com.tapwisdom.core.daos, com.tapwisdom.core.es.repositories, com.tapwisdom.core.notification"/>
+    <context:annotation-config/>
+    <mvc:annotation-driven/>
+
+    <context:property-placeholder location="classpath:database.properties,classpath:elasticsearch.properties,
+    classpath:aws.properties"/>
+
+    <!-- Elasticsearch config begin -->
+    <elasticsearch:transport-client id="elasticsearchClient" cluster-nodes="${cluster}"/>
+
+    <bean name="elasticsearchTemplate" class="org.springframework.data.elasticsearch.core.ElasticsearchTemplate">
+        <constructor-arg name="client" ref="elasticsearchClient"/>
+    </bean>
+
+    <elasticsearch:repositories base-package="com.tapwisdom.core.es.repositories"/>
+    <!--Elasticsearch config end -->
+
+    <!-- begin mongo config -->
+    <bean id="mongoClient" class="com.mongodb.MongoClient">
+        <constructor-arg name="host" value="${server}"/>
+        <constructor-arg name="port" value="${port}"/>
+    </bean>
+
+    <bean id="mongoDbFactoryBean" class="org.springframework.data.mongodb.core.SimpleMongoDbFactory">
+        <constructor-arg name="mongo" ref="mongoClient"/>
+        <constructor-arg name="databaseName" value="${name}"/>
+    </bean>
+
+    <bean id="mongoTemplate" class="org.springframework.data.mongodb.core.MongoTemplate">
+        <constructor-arg name="mongoDbFactory" ref="mongoDbFactoryBean" />
+    </bean>
+    <!-- end mongo config -->
+
+    <mvc:interceptors>
+        <bean class="org.springframework.web.servlet.i18n.LocaleChangeInterceptor">
+        </bean>
+        <mvc:interceptor>
+            <mvc:mapping path="/**"/>
+            <mvc:exclude-mapping path="/adminuser/login"/>
+            <mvc:exclude-mapping path="/adminuser/register"/>
+            <mvc:exclude-mapping path="/adminuser/isLoggedIn"/>
+            <bean class="com.tapwisdom.admin.api.controller.LoginInterceptor"></bean>
+        </mvc:interceptor>
+    </mvc:interceptors>
+
+    <!-- AWS / SES configuration begin -->
+    <bean id="awsCredentials" class="com.amazonaws.auth.BasicAWSCredentials">
+        <constructor-arg name="accessKey" value="${ACCESS_KEY}"/>
+        <constructor-arg name="secretKey" value="${AWS_ACCESS_SECRET}"/>
+    </bean>
+
+    <bean id="amazonSesAsyncClient" class="com.amazonaws.services.simpleemail.AmazonSimpleEmailServiceAsyncClient">
+        <constructor-arg name="awsCredentials" ref="awsCredentials"/>
+    </bean>
+    <!-- AWS / SES configuration end -->
+
+</beans>

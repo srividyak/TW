@@ -1,0 +1,104 @@
+apply plugin: 'java'
+apply plugin: 'war'
+
+sourceCompatibility = 1.7
+version = '1.0'
+
+repositories {
+    mavenCentral()
+    mavenLocal()
+}
+
+configurations {
+    provided
+    sshAntTask
+}
+
+dependencies {
+    def springVersion = '4.1.6.RELEASE'
+    compile project(':service')
+    compile 'org.springframework.data:spring-data-elasticsearch:1.0.0.RELEASE'
+    compile "org.springframework:spring-core:$springVersion"
+    compile "org.springframework:spring-test:$springVersion"
+    compile "org.springframework:spring-webmvc:$springVersion"
+    compile 'org.slf4j:slf4j-log4j12:1.7.5'
+    compile('log4j:log4j:1.2.12') {
+        exclude group: 'com.sun.jmx', module: 'jmxri'
+        exclude group: 'javax.jms', module: 'jms'
+        exclude group: 'com.sun.jdmk', module: 'jmxtools'
+    }
+    compile 'org.springframework.data:spring-data-mongodb:1.7.0.RELEASE'
+    compile 'com.google.code.gson:gson:2.2.4'
+    compile 'org.mongodb:mongo-java-driver:3.0.0'
+    compile 'org.codehaus.jackson:jackson-mapper-asl:1.9.13'
+    compile 'commons-codec:commons-codec:1.10'
+    compile 'commons-httpclient:commons-httpclient:3.1'
+    compile 'TW-Standalone:daos:1.0'
+    compile 'TW-Standalone:common:1.0'
+    compile 'TW-Standalone:es:1.0'
+    compile 'javax.servlet:servlet-api:2.5'
+    compile 'commons-codec:commons-codec:1.4'
+
+    testCompile group: 'junit', name: 'junit', version: '4.11'
+    testCompile group: "de.flapdoodle.embed", name: "de.flapdoodle.embed.mongo", version: "1.48.0"
+
+    sshAntTask 'org.apache.ant:ant-jsch:1.9.2'
+}
+
+task(deployWar, type: Copy) {
+    def serverLibHome = "/Library/Tomcat/Home"
+//    def serverLibHome = "/Users/srividyak/Downloads/jetty-distribution-9.2.10.v20150310";
+    from(file("$buildDir/libs/TapWisdom-1.0.war"))
+    into("$serverLibHome/webapps/")
+}
+
+task(testResourcesCopy, type: Copy) {
+    from(file("src/test/resources/common.properties"))
+    into("/tmp/tw/test/")
+}
+
+ant.taskdef(
+        name: 'scp',
+        classname: 'org.apache.tools.ant.taskdefs.optional.ssh.Scp',
+        classpath: configurations.sshAntTask.asPath
+)
+
+ant.taskdef(
+        name: 'ssh',
+        classname: 'org.apache.tools.ant.taskdefs.optional.ssh.SSHExec',
+        classpath: configurations.sshAntTask.asPath
+)
+
+task deployWarToDev() << {
+    def knownHosts = File.createTempFile("knownhosts", "txt")
+    def user = 'ec2-user'
+    def host = 'ec2-54-68-236-116.us-west-2.compute.amazonaws.com'
+    def privateKey = file('/Users/srividyak/.ssh/Vidya_mac.pem')
+
+    try {
+
+        // Example to copy files to a remote host.
+        ant.scp(
+                file: file("$buildDir/libs/TapWisdom-1.0.war"),
+                todir: "${user}@${host}:/tw/tomcat/webapps",
+                keyfile: privateKey,
+                trust: true,
+                knownhosts: knownHosts
+        )
+
+    } finally {
+        knownHosts.delete()
+    }
+}
+
+war {
+    rootSpec.exclude('**/servlet-api-2.5.jar')
+}
+
+deployWar.dependsOn war
+deployWarToDev.dependsOn war
+
+test {
+    dependsOn testResourcesCopy
+    systemProperty 'config.path', '/tmp/tw/test'
+}

@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans
+        xmlns="http://www.springframework.org/schema/beans"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xmlns:p="http://www.springframework.org/schema/p"
+        xmlns:context="http://www.springframework.org/schema/context"
+        xmlns:mongo="http://www.springframework.org/schema/data/mongo"
+        xmlns:elasticsearch="http://www.springframework.org/schema/data/elasticsearch"
+        xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-3.2.xsd
+    http://www.springframework.org/schema/context
+    http://www.springframework.org/schema/context/spring-context-3.2.xsd
+    http://www.springframework.org/schema/data/mongo
+    http://www.springframework.org/schema/data/mongo/spring-mongo-1.0.xsd
+    http://www.springframework.org/schema/data/elasticsearch http://www.springframework.org/schema/data/elasticsearch/spring-elasticsearch-1.0.xsd">
+
+    <!-- combo of daos & es app context -->
+
+    <context:component-scan base-package="com.tapwisdom.core.daos,com.tapwisdom.core.es.repositories"/>
+    <context:annotation-config/>
+
+    <context:property-placeholder location="classpath:database.properties,classpath:elasticsearch.properties"/>
+    
+    <!-- Elasticsearch config begin -->
+    <elasticsearch:transport-client id="elasticsearchClient" cluster-nodes="${cluster}"/>
+
+    <bean name="elasticsearchTemplate" class="org.springframework.data.elasticsearch.core.ElasticsearchTemplate">
+        <constructor-arg name="client" ref="elasticsearchClient"/>
+    </bean>
+
+    <elasticsearch:repositories base-package="com.tapwisdom.core.es.repositories"/>
+    <!--Elasticsearch config end -->
+
+    <!-- begin mongo config -->
+    <mongo:mongo host="${server}" port="${port}"/>
+    <mongo:db-factory dbname="${name}"/>
+
+    <bean id="mongoClient" class="com.mongodb.MongoClient"/>
+
+    <bean id="mongoDbFactoryBean" class="org.springframework.data.mongodb.core.SimpleMongoDbFactory">
+        <constructor-arg name="mongo" ref="mongoClient"/>
+        <constructor-arg name="databaseName" value="${name}"/>
+    </bean>
+
+    <bean id="mongoTemplate" class="org.springframework.data.mongodb.core.MongoTemplate">
+        <constructor-arg name="mongoDbFactory" ref="mongoDbFactoryBean" />
+    </bean>
+    <!-- end mongo config -->
+
+</beans>
